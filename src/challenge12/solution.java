@@ -80,16 +80,21 @@ public class solution {
     private static AccountRecord sellForeign(AccountRecord current, CurrencyRate rate) {
         return new AccountRecord(
                 rate.dayNo,
-                current.localMoney.add(current.foreignMoney.multiply(rate.buy)),
-                BigDecimal.valueOf(0.0)
+                current.localMoney.add(
+                        current.foreignMoney
+                                .multiply(rate.buy)
+                                .divide(BigDecimal.ONE, 2, RoundingMode.FLOOR)),
+                BigDecimal.ZERO
         );
     }
 
     private static AccountRecord buyForeign(AccountRecord current, CurrencyRate rate) {
         return new AccountRecord(
                 rate.dayNo,
-                BigDecimal.valueOf(0.0),
-                current.foreignMoney.add(current.localMoney.divide(rate.sell, 2, RoundingMode.FLOOR))
+                BigDecimal.ZERO,
+                current.foreignMoney.add(
+                        current.localMoney
+                                .divide(rate.sell, 2, RoundingMode.FLOOR))
         );
     }
 
@@ -178,7 +183,7 @@ public class solution {
 
     private static BigDecimal solution(long startMoney, String fn) throws IOException {
         List<CurrencyRate> ratesList = readCurrencyRates(fn);
-        AccountRecord initialAccount = new AccountRecord(0, BigDecimal.valueOf(startMoney), BigDecimal.valueOf(0.00));
+        AccountRecord initialAccount = new AccountRecord(0, BigDecimal.valueOf(startMoney), BigDecimal.ZERO);
 
         ArrayList<AccountRecord> hist = new ArrayList<>(ratesList.size() + 1);
         hist.add(initialAccount);
@@ -187,7 +192,7 @@ public class solution {
         calculate(1, ratesList, hist,
                 opChain -> {
                     if ((getLast(opChain).localMoney.compareTo(getLast(best).localMoney) > 0)
-                            || (getLast(opChain).localMoney.compareTo(getLast(best).localMoney) == 0 && (opChain.size() < best.size()))
+                            || (opChain.size() < best.size() && getLast(opChain).localMoney.compareTo(getLast(best).localMoney) == 0)
                     ) {
                         best.clear();
                         best.addAll(opChain);
