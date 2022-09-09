@@ -1,6 +1,8 @@
 package challenge12;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -9,7 +11,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-import static java.lang.Double.parseDouble;
 
 public class solution {
     /*
@@ -42,10 +43,10 @@ public class solution {
 
     public static class AccountRecord {
         public final int dayNo;
-        public final double localMoney;
-        public final double foreignMoney;
+        public final BigDecimal localMoney;
+        public final BigDecimal foreignMoney;
 
-        public AccountRecord(int dayNo, double localMoney, double foreignMoney) {
+        public AccountRecord(int dayNo, BigDecimal localMoney, BigDecimal foreignMoney) {
             this.dayNo = dayNo;
             this.localMoney = localMoney;
             this.foreignMoney = foreignMoney;
@@ -54,10 +55,10 @@ public class solution {
 
     public static class CurrencyRate {
         public final int dayNo;
-        public final double buy;
-        public final double sell;
+        public final BigDecimal buy;
+        public final BigDecimal sell;
 
-        public CurrencyRate(int dayNo, double buy, double sell) {
+        public CurrencyRate(int dayNo, BigDecimal buy, BigDecimal sell) {
             this.dayNo = dayNo;
             this.buy = buy;
             this.sell = sell;
@@ -69,20 +70,27 @@ public class solution {
         return Files.readAllLines(Path.of(fn), StandardCharsets.UTF_8).stream()
                 .map(s -> s.split("\\s*[, |]\\s*", 3))
                 .filter(arr -> arr.length >= 2 && !arr[0].isEmpty())
-                .map(arr -> new CurrencyRate(counter.getAndIncrement(), parseDouble(arr[0]), parseDouble(arr[1])))
+                .map(arr -> new CurrencyRate(
+                        counter.getAndIncrement(),
+                        BigDecimal.valueOf(Double.parseDouble(arr[0])),
+                        BigDecimal.valueOf(Double.parseDouble(arr[1]))))
                 .collect(Collectors.toList());
     }
 
     private static AccountRecord sellForeign(AccountRecord current, CurrencyRate rate) {
-        return new AccountRecord(rate.dayNo,
-                current.localMoney + current.foreignMoney * rate.buy,
-                0.0);
+        return new AccountRecord(
+                rate.dayNo,
+                current.localMoney.add(current.foreignMoney.multiply(rate.buy)),
+                BigDecimal.valueOf(0.0)
+        );
     }
 
     private static AccountRecord buyForeign(AccountRecord current, CurrencyRate rate) {
-        return new AccountRecord(rate.dayNo,
-                0.0,
-                current.foreignMoney + (current.localMoney / rate.sell));
+        return new AccountRecord(
+                rate.dayNo,
+                BigDecimal.valueOf(0.0),
+                current.foreignMoney.add(current.localMoney.divide(rate.sell, 2, RoundingMode.FLOOR))
+        );
     }
 
     public static <T> T getLast(List<T> list) {
@@ -98,7 +106,7 @@ public class solution {
         AccountRecord first = history.get(0);
 
         if (dayNo == rates.size()) { // after last day
-            if (current.localMoney > first.localMoney) {
+            if (current.localMoney.compareTo(first.localMoney) > 0) {
                 checkResult.accept(history);
             }
             return;
@@ -106,21 +114,22 @@ public class solution {
         CurrencyRate dayNoRate = rates.get(dayNo - 1);
 
         // 3 actions to check: Buy, Cell, Nothing
-        if (current.localMoney > 0) {
+        if (current.localMoney.compareTo(BigDecimal.ZERO) > 0) {
             AccountRecord afterBuy = buyForeign(current, dayNoRate);
             history.add(afterBuy);
             calculate(dayNo + 1, rates, history, checkResult);
             history.remove(history.size() - 1);
         }
-        if (current.foreignMoney > 0) {
+        if (current.foreignMoney.compareTo(BigDecimal.ZERO) > 0) {
             AccountRecord afterSell = sellForeign(current, dayNoRate);
-            if (afterSell.localMoney > first.localMoney) {
+            if (afterSell.localMoney.compareTo(first.localMoney) > 0) {
                 history.add(afterSell);
                 calculate(dayNo + 1, rates, history, checkResult);
                 history.remove(history.size() - 1);
             }
         }
-        if ((current.localMoney > 0) || (current.foreignMoney > 0)) {
+        if (current.localMoney.compareTo(BigDecimal.ZERO) > 0
+                || (current.foreignMoney.compareTo(BigDecimal.ZERO) > 0)) {
             calculate(dayNo + 1, rates, history, checkResult);
         }
     }
@@ -167,13 +176,9 @@ public class solution {
         prettyPrintLine(ratesList.size(), ratesList, last);
     }
 
-    private static boolean isEqual(Double r1, Double r2) {
-        return Math.abs(r1 - r2) < 1e-5;
-    }
-
-    private static double solution(String fn) throws IOException {
+    private static BigDecimal solution(long startMoney, String fn) throws IOException {
         List<CurrencyRate> ratesList = readCurrencyRates(fn);
-        AccountRecord initialAccount = new AccountRecord(0, 1000.00, 0.00);
+        AccountRecord initialAccount = new AccountRecord(0, BigDecimal.valueOf(startMoney), BigDecimal.valueOf(0.00));
 
         ArrayList<AccountRecord> hist = new ArrayList<>(ratesList.size() + 1);
         hist.add(initialAccount);
@@ -181,9 +186,9 @@ public class solution {
         final ArrayList<AccountRecord> best = new ArrayList<>(hist);
         calculate(1, ratesList, hist,
                 opChain -> {
-                    if ((getLast(opChain).localMoney > getLast(best).localMoney)
-                            || (isEqual(getLast(opChain).localMoney, getLast(best).localMoney) && (opChain.size() < best.size()))
-                    ){
+                    if ((getLast(opChain).localMoney.compareTo(getLast(best).localMoney) > 0)
+                            || (getLast(opChain).localMoney.compareTo(getLast(best).localMoney) == 0 && (opChain.size() < best.size()))
+                    ) {
                         best.clear();
                         best.addAll(opChain);
                     }
@@ -191,12 +196,12 @@ public class solution {
         AccountRecord last = getLast(best);
         prettyPrintResult(ratesList, best);
 
-        double r = last.localMoney - initialAccount.localMoney;
-        System.out.printf("The potential maximum gain is %.2f%n", r);
-        return r;
+        return last.localMoney.subtract(initialAccount.localMoney);
     }
 
     public static void main(String[] args) throws Exception {
-        solution("./src/challenge12/input_12.csv");
+        System.out.printf("The potential maximum gain is %.2f%n",
+                solution(1000, "./src/challenge12/input_12.csv")
+        );
     }
 }
