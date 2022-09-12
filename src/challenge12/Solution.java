@@ -12,7 +12,11 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 
-public class solution {
+public class Solution {
+    public static int CURRENCY_SCALE = 2;
+    public static int FOREIGN_SCALE = 2;
+    public static int RATE_SCALE = 0;
+
     /*
     There is an exchange office that displays every day an exchange rate for a foreign currency. There is a
     buy rate and a sell rate every day.
@@ -83,7 +87,7 @@ public class solution {
                 current.localMoney.add(
                         current.foreignMoney
                                 .multiply(rate.buy)
-                                .divide(BigDecimal.ONE, 2, RoundingMode.FLOOR)),
+                                .divide(BigDecimal.ONE, CURRENCY_SCALE, RoundingMode.FLOOR)),
                 BigDecimal.ZERO
         );
     }
@@ -94,7 +98,7 @@ public class solution {
                 BigDecimal.ZERO,
                 current.foreignMoney.add(
                         current.localMoney
-                                .divide(rate.sell, 2, RoundingMode.FLOOR))
+                                .divide(rate.sell, FOREIGN_SCALE, RoundingMode.FLOOR))
         );
     }
 
@@ -105,14 +109,14 @@ public class solution {
     private static void calculate(int dayNo,
                                   List<CurrencyRate> rates,
                                   List<AccountRecord> history,
-                                  Consumer<List<AccountRecord>> checkResult
+                                  Consumer<List<AccountRecord>> checkResultFn
     ) {
         AccountRecord current = getLast(history);
         AccountRecord first = history.get(0);
 
         if (dayNo == rates.size()) { // after last day
             if (current.localMoney.compareTo(first.localMoney) > 0) {
-                checkResult.accept(history);
+                checkResultFn.accept(history);
             }
             return;
         }
@@ -122,44 +126,44 @@ public class solution {
         if (current.localMoney.compareTo(BigDecimal.ZERO) > 0) {
             AccountRecord afterBuy = buyForeign(current, dayNoRate);
             history.add(afterBuy);
-            calculate(dayNo + 1, rates, history, checkResult);
+            calculate(dayNo + 1, rates, history, checkResultFn);
             history.remove(history.size() - 1);
         }
         if (current.foreignMoney.compareTo(BigDecimal.ZERO) > 0) {
             AccountRecord afterSell = sellForeign(current, dayNoRate);
             if (afterSell.localMoney.compareTo(first.localMoney) > 0) {
                 history.add(afterSell);
-                calculate(dayNo + 1, rates, history, checkResult);
+                calculate(dayNo + 1, rates, history, checkResultFn);
                 history.remove(history.size() - 1);
             }
         }
         if (current.localMoney.compareTo(BigDecimal.ZERO) > 0
                 || (current.foreignMoney.compareTo(BigDecimal.ZERO) > 0)) {
-            calculate(dayNo + 1, rates, history, checkResult);
+            calculate(dayNo + 1, rates, history, checkResultFn);
         }
     }
 
     private static void prettyPrintLine(int dayNo, List<CurrencyRate> ratesList, AccountRecord acc) {
         String fmt = "| %3s | %14s | %14s | %14s | %14s |%n";
         if (dayNo == 0) {
-            System.out.printf(fmt, "Day", "buy", "sell", "Cash", "Foreign");
+            System.out.printf(fmt, "Day", "Rate/buy", "Rate/sell", "Cash", "Foreign");
         }
         String dd, r1, r2, a1, a2;
         if (dayNo > 0 && dayNo < ratesList.size()) {
             dd = String.format("%02d", dayNo);
-            r1 = String.format("%8.4f", ratesList.get(dayNo - 1).buy);
-            r2 = String.format("%8.4f", ratesList.get(dayNo - 1).sell);
+            r1 = String.format("%."+RATE_SCALE+"f", ratesList.get(dayNo - 1).buy);
+            r2 = String.format("%."+RATE_SCALE+"f", ratesList.get(dayNo - 1).sell);
         } else {
-            dd = String.format("%2s", " ");
-            r1 = String.format("%12s", " ");
-            r2 = String.format("%12s", " ");
+            dd = String.format("%s", " ");
+            r1 = String.format("%s", " ");
+            r2 = String.format("%s", " ");
         }
         if (acc != null) {
-            a1 = String.format("%12.2f", acc.localMoney);
-            a2 = String.format("%12.2f", acc.foreignMoney);
+            a1 = String.format("%."+CURRENCY_SCALE+"f", acc.localMoney);
+            a2 = String.format("%."+FOREIGN_SCALE+"f", acc.foreignMoney);
         } else {
-            a1 = String.format("%14s", " ");
-            a2 = String.format("%14s", " ");
+            a1 = String.format("%s", " ");
+            a2 = String.format("%s", " ");
         }
         System.out.printf(fmt, dd, r1, r2, a1, a2);
     }
@@ -181,8 +185,12 @@ public class solution {
         prettyPrintLine(ratesList.size(), ratesList, last);
     }
 
-    private static BigDecimal solution(long startMoney, String fn) throws IOException {
-        List<CurrencyRate> ratesList = readCurrencyRates(fn);
+    public static BigDecimal solution(long startMoney, String fn) throws IOException {
+        return solution(startMoney, readCurrencyRates(fn));
+    }
+
+    public static BigDecimal solution(long startMoney, List<CurrencyRate> ratesList) {
+
         AccountRecord initialAccount = new AccountRecord(0, BigDecimal.valueOf(startMoney), BigDecimal.ZERO);
 
         ArrayList<AccountRecord> hist = new ArrayList<>(ratesList.size() + 1);
@@ -205,7 +213,7 @@ public class solution {
     }
 
     public static void main(String[] args) throws Exception {
-        System.out.printf("The potential maximum gain is %.2f%n",
+        System.out.printf("The potential maximum gain is %."+CURRENCY_SCALE+"f%n",
                 solution(1000, "./src/challenge12/input_12.csv")
         );
     }
