@@ -114,7 +114,7 @@ public class Solution {
         AccountRecord current = getLast(history);
         AccountRecord first = history.get(0);
 
-        if (dayNo == rates.size()) { // after last day
+        if (dayNo > rates.size()) { // after last day
             if (current.localMoney.compareTo(first.localMoney) > 0) {
                 checkResultFn.accept(history);
             }
@@ -149,7 +149,7 @@ public class Solution {
             System.out.printf(fmt, "Day", "Rate/buy", "Rate/sell", "Cash", "Foreign");
         }
         String dd, r1, r2, a1, a2;
-        if (dayNo > 0 && dayNo < ratesList.size()) {
+        if (dayNo > 0 && dayNo <= ratesList.size()) {
             dd = String.format("%02d", dayNo);
             r1 = String.format("%."+RATE_SCALE+"f", ratesList.get(dayNo - 1).buy);
             r2 = String.format("%."+RATE_SCALE+"f", ratesList.get(dayNo - 1).sell);
@@ -171,7 +171,7 @@ public class Solution {
     private static void prettyPrintResult(List<CurrencyRate> ratesList, ArrayList<AccountRecord> best) {
         System.out.println("Best variant:");
         AccountRecord last = null;
-        for (int i = 0; i < ratesList.size(); i++) {
+        for (int i = 0; i <= ratesList.size(); i++) {
             AccountRecord acc = null;
             if (!best.isEmpty()) {
                 if (best.get(0).dayNo == i) {
@@ -182,7 +182,7 @@ public class Solution {
             }
             prettyPrintLine(i, ratesList, acc);
         }
-        prettyPrintLine(ratesList.size(), ratesList, last);
+        prettyPrintLine(ratesList.size() + 1, ratesList, last);
     }
 
     public static BigDecimal solution(long startMoney, String fn) throws IOException {
